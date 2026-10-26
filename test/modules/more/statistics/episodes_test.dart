@@ -2,6 +2,7 @@ import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mangayomi/models/manga.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mangayomi/l10n/generated/app_localizations.dart';
 import 'package:mangayomi/modules/more/statistics/recap/episodes/episode_list_screen.dart';
@@ -65,6 +66,10 @@ StatusWindowData _allTime() => deriveStatusWindow(
         genres: const ['Action'],
         source: 'Asura Scans',
         dateAdded: DateTime(2023, 3, 4).millisecondsSinceEpoch,
+        // Series 3 has the only known last read: the longest bond.
+        lastReadMs: i == 3
+            ? DateTime(2026, 10, 1).millisecondsSinceEpoch
+            : null,
         chaptersRead: 40 + i,
         seconds: 3600 * (12 - i),
       ),
@@ -84,12 +89,29 @@ EpisodeSummary _summary(int month, int hours) => EpisodeSummary(
   coverMangaIds: const [1, 2, 3],
 );
 
+/// A series whose cover link is gone, as after a restore from a dead CDN.
+Manga _coverless(int id, String name) => Manga(
+  source: 'Asura Scans',
+  author: '',
+  artist: '',
+  genre: const [],
+  imageUrl: null,
+  lang: 'en',
+  link: '/$id',
+  name: name,
+  status: Status.ongoing,
+  description: '',
+  sourceId: null,
+  itemType: ItemType.manga,
+);
+
 Future<void> _pump(
   WidgetTester tester,
   String location, {
   List<EpisodeSummary>? months,
   MonthStats? month,
   double width = 420,
+  Manga? Function(int id)? manga,
 }) async {
   tester.view.physicalSize = Size(width, 4200);
   tester.view.devicePixelRatio = 1;
@@ -100,7 +122,7 @@ Future<void> _pump(
     ProviderScope(
       overrides: [
         recapFontsProvider.overrideWithValue(RecapFonts.system),
-        recapMangaProvider.overrideWith((ref, id) async => null),
+        recapMangaProvider.overrideWith((ref, id) async => manga?.call(id)),
         statusWindowProvider.overrideWith((ref, type) async => _allTime()),
         episodeListProvider.overrideWith(
           (ref, type) async => (
@@ -133,6 +155,46 @@ AppLocalizations _l10n(WidgetTester tester) =>
 double _top(WidgetTester tester, Finder finder) => tester.getTopLeft(finder).dy;
 
 void main() {
+  testWidgets('finished titles stay clear of the next cover', (tester) async {
+    await _pump(
+      tester,
+      '/statistics/episodes/2026-10?type=manga',
+      month: _october(finishedIds: const [2, 3, 4, 5, 6]),
+      manga: (id) => _coverless(id, 'Finished $id'),
+    );
+
+    final covers = find.descendant(
+      of: find.byType(FinishedPanel),
+      matching: find.byType(RecapCover),
+    );
+    final ids = [
+      for (final e in covers.evaluate()) (e.widget as RecapCover).mangaId,
+    ];
+    for (var i = 0; i + 1 < ids.length; i++) {
+      final title = tester.getRect(find.text('Finished ${ids[i]}'));
+      final next = tester.getRect(covers.at(i + 1));
+      // The covers tilt a few degrees, so allow for the corner swing.
+      expect(title.right, lessThanOrEqualTo(next.left + 6), reason: '#$i');
+    }
+  });
+
+  testWidgets('finished series without a cover show their titles', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      '/statistics/episodes/2026-10?type=manga',
+      manga: (id) => _coverless(id, 'Finished $id'),
+    );
+
+    expect(
+      find.descendant(
+        of: find.byType(FinishedPanel),
+        matching: find.text('Finished 2'),
+      ),
+      findsOneWidget,
+    );
+  });
   testWidgets('list shows months newest first plus Prologue', (tester) async {
     await _pump(tester, '/statistics/episodes?type=manga');
     final l10n = _l10n(tester);
@@ -215,6 +277,23 @@ void main() {
     expect(find.textContaining('2023'), findsWidgets);
     expect(find.byType(HoursPanel), findsOneWidget);
     expect(find.textContaining('vs previous'), findsNothing);
+  });
+
+  testWidgets('the prologue #1 is the longest bond', (tester) async {
+    await _pump(tester, '/statistics/episodes/prologue?type=manga');
+
+    final panel = find.byType(TopSeriesPanel);
+    expect(
+      find.descendant(of: panel, matching: find.text('SERIES 3')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: panel,
+        matching: find.textContaining('3 years together'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('bad month param returns to list', (tester) async {
