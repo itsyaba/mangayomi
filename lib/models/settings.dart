@@ -337,6 +337,15 @@ class Settings {
   /// False by default so existing installs keep the standard attached bar.
   bool? useFloatingNavigationBar;
 
+  /// Shows how many chapters were found since Updates was last opened as a
+  /// badge on its navigation icon. On by default.
+  bool? showUpdatesBadge;
+
+  /// When Updates was last opened or left, as epoch milliseconds. The badge
+  /// counts the unread updates found after it. App state rather than a
+  /// preference: kept on this device and out of sync.
+  int? updatesLastSeenAt;
+
   /// Lets the chosen palette colour the surfaces (backgrounds, cards, bars)
   /// as well as the accent, the way the app looked before Shiori.
   ///
@@ -688,6 +697,8 @@ class Settings {
     this.mergeLibraryNavMobile = false,
     this.showNavDoubleTapTooltip = true,
     this.useFloatingNavigationBar = false,
+    this.showUpdatesBadge = true,
+    this.updatesLastSeenAt,
     this.tintSurfacesWithPalette = false,
     this.groupNavDestinations = true,
     this.showContinueShelf = true,
@@ -1063,6 +1074,8 @@ class Settings {
     mergeLibraryNavMobile = json['mergeLibraryNavMobile'];
     showNavDoubleTapTooltip = json['showNavDoubleTapTooltip'];
     useFloatingNavigationBar = json['useFloatingNavigationBar'] ?? false;
+    showUpdatesBadge = json['showUpdatesBadge'] ?? true;
+    updatesLastSeenAt = json['updatesLastSeenAt'];
     tintSurfacesWithPalette = json['tintSurfacesWithPalette'] ?? false;
     groupNavDestinations = json['groupNavDestinations'] ?? true;
     showContinueShelf = json['showContinueShelf'] ?? true;
@@ -1349,6 +1362,8 @@ class Settings {
     'mergeLibraryNavMobile': mergeLibraryNavMobile,
     'showNavDoubleTapTooltip': showNavDoubleTapTooltip,
     'useFloatingNavigationBar': useFloatingNavigationBar,
+    'showUpdatesBadge': showUpdatesBadge,
+    'updatesLastSeenAt': updatesLastSeenAt,
     'tintSurfacesWithPalette': tintSurfacesWithPalette,
     'groupNavDestinations': groupNavDestinations,
     'showContinueShelf': showContinueShelf,
