@@ -1,0 +1,46 @@
+# Personal build: an unsigned release IPA of this branch, to sideload with
+# Sideloadly or AltStore. Not for upstream.
+name: Personal IPA
+
+on:
+  push:
+    branches: [personal/ipa-build]
+  workflow_dispatch:
+
+jobs:
+  ipa:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios,x86_64-apple-ios
+
+      - uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: rust
+          cache-on-failure: true
+
+      - run: flutter pub get
+
+      - name: Build unsigned IPA
+        run: |
+          flutter build ios --release --no-codesign
+          mkdir -p build/ios/iphoneos/Payload
+          mv build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
+          cd build/ios/iphoneos
+          zip -qr Mangayomi-personal-ios.ipa Payload
+
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: Mangayomi-personal-ios
+          path: build/ios/iphoneos/Mangayomi-personal-ios.ipa

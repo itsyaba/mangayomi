@@ -18,6 +18,7 @@ import 'package:mangayomi/models/chapter.dart';
 import 'package:mangayomi/models/custom_button.dart';
 import 'package:mangayomi/models/download.dart';
 import 'package:mangayomi/models/history.dart';
+import 'package:mangayomi/models/reading_log.dart';
 import 'package:mangayomi/models/manga.dart';
 import 'package:mangayomi/models/settings.dart';
 import 'package:mangayomi/models/source.dart';
@@ -130,6 +131,7 @@ void main() {
         CustomButtonSchema,
         UpdateSchema,
         HistorySchema,
+        ReadingLogSchema,
         DownloadSchema,
         SourceSchema,
         SettingsSchema,
@@ -265,6 +267,24 @@ void main() {
     final history = seriesHistory();
     expect(history.readingTimeSeconds, 5400);
     expect(history.date, '1720000000000');
+  });
+
+  testWidgets('replace restore clears the reading log', (tester) async {
+    final (ctx, ref) = await _pumpShell(tester);
+    isar.writeTxnSync(
+      () => isar.readingLogs.putSync(
+        ReadingLog(
+          mangaId: 999,
+          itemType: ItemType.manga,
+          at: 1,
+          kind: ReadingLogKind.completion,
+        ),
+      ),
+    );
+
+    await restore(tester, ref, ctx, merge: false);
+
+    expect(isar.readingLogs.countSync(), 0);
   });
 
   testWidgets('merge restore twice keeps max', (tester) async {
